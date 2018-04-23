@@ -319,6 +319,10 @@ public class HttpConstants {
     public static final String CLIENT_EP_FORWARDED = "forwarded";
     public static final String TARGET_SERVICES = "targets";
     public static final String CLIENT_EP_ACCEPT_ENCODING = "acceptEncoding";
+    public static final String CLIENT_EP_AUTH = "auth";
+    public static final String CLIENT_EP_AUTH_SCHEME = "scheme";
+    public static final String AUTH_SCHEME_JWT = "jwt";
+    public static final String AUTHORIZATION_BEARER = "Bearer";
 
     //Connection Throttling Indexes
     public static final String CONNECTION_THROTTLING_STRUCT_REFERENCE = "connectionThrottling";

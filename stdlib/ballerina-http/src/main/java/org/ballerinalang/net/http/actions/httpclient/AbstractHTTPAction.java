@@ -33,6 +33,7 @@ import org.ballerinalang.model.NativeCallableUnit;
 import org.ballerinalang.model.types.BStructType;
 import org.ballerinalang.model.values.BRefValueArray;
 import org.ballerinalang.model.values.BStruct;
+import org.ballerinalang.nativeimpl.runtime.InvocationContextUtils;
 import org.ballerinalang.net.http.AcceptEncodingConfig;
 import org.ballerinalang.net.http.DataContext;
 import org.ballerinalang.net.http.HttpConstants;
@@ -109,6 +110,7 @@ public abstract class AbstractHTTPAction implements NativeCallableUnit {
         AcceptEncodingConfig acceptEncodingConfig = getAcceptEncodingConfig
                                                         (getAcceptEncodingConfigFromEndpointConfig(bConnector));
         handleAcceptEncodingHeader(requestMsg, acceptEncodingConfig);
+        setDownstreamAuthenticationInfo(getClientAuthScheme(bConnector), context, requestMsg);
         return requestMsg;
     }
 
@@ -119,6 +121,38 @@ public abstract class AbstractHTTPAction implements NativeCallableUnit {
             return HttpConstants.AUTO;
         }
         return epConfig.getRefField(HttpConstants.CLIENT_EP_ACCEPT_ENCODING).getStringValue();
+    }
+
+
+    private String getClientAuthScheme (BStruct httpClientStruct) {
+        Struct clientEndpointConfig = BLangConnectorSPIUtil.toStruct(httpClientStruct);
+        Struct epConfig = (Struct) clientEndpointConfig.getNativeData(HttpConstants.CLIENT_ENDPOINT_CONFIG);
+        if (epConfig == null || epConfig.getRefField(HttpConstants.CLIENT_EP_AUTH) == null) {
+            return null;
+        }
+        return epConfig.getRefField(HttpConstants.CLIENT_EP_AUTH).getStructValue().getStringField(HttpConstants
+                .CLIENT_EP_AUTH_SCHEME);
+    }
+
+    private void setDownstreamAuthenticationInfo (String clientAuthScheme, Context context, HTTPCarbonMessage
+            outboundRequest) {
+        if (clientAuthScheme == null) {
+            // no authentication required
+            return;
+        }
+        if (HttpConstants.AUTH_SCHEME_JWT.equalsIgnoreCase(clientAuthScheme)) {
+            // see if there is a JWT auth header set in the Invocation Context
+            BStruct invocationContextStruct = InvocationContextUtils.getInvocationContextStruct(context);
+            String authScheme = ((BStruct) invocationContextStruct.getRefField(1)).getStringField(0);
+            String token = ((BStruct) invocationContextStruct.getRefField(1)).getStringField(1);
+            // auth scheme in Invocation Context should be JWT
+            if (HttpConstants.AUTH_SCHEME_JWT.equalsIgnoreCase(authScheme)) {
+                outboundRequest.setHeader(HttpHeaderNames.AUTHORIZATION.toString(), HttpConstants.AUTHORIZATION_BEARER +
+                        " " + token);
+            }
+
+        }
+        // TODO: handle other auth schemes
     }
 
     private static AcceptEncodingConfig getAcceptEncodingConfig(String acceptEncodingConfig) {
